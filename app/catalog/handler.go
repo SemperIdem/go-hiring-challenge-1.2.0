@@ -2,12 +2,12 @@ package catalog
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
 	"strings"
 
+	"github.com/mytheresa/go-hiring-challenge/app/api"
 	"github.com/mytheresa/go-hiring-challenge/models"
 	"github.com/shopspring/decimal"
 )
@@ -24,9 +24,9 @@ type Product struct {
 }
 
 type ProductDetails struct {
-	Code     string          `json:"code"`
-	Price    float64         `json:"price"`
-	Category Category        `json:"category"`
+	Code     string           `json:"code"`
+	Price    float64          `json:"price"`
+	Category Category         `json:"category"`
 	Variants []ProductVariant `json:"variants"`
 }
 
@@ -57,25 +57,25 @@ func NewCatalogHandler(r ProductLister) *CatalogHandler {
 func (h *CatalogHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 	offset, err := parseOffset(r.URL.Query().Get("offset"))
 	if err != nil {
-		http.Error(w, "invalid offset", http.StatusBadRequest)
+		api.ErrorResponse(w, http.StatusBadRequest, "invalid offset")
 		return
 	}
 
 	limit, err := parseLimit(r.URL.Query().Get("limit"))
 	if err != nil {
-		http.Error(w, "invalid limit", http.StatusBadRequest)
+		api.ErrorResponse(w, http.StatusBadRequest, "invalid limit")
 		return
 	}
 
 	filters, err := parseFilters(r)
 	if err != nil {
-		http.Error(w, "invalid filters", http.StatusBadRequest)
+		api.ErrorResponse(w, http.StatusBadRequest, "invalid filters")
 		return
 	}
 
 	res, total, err := h.repo.List(r.Context(), offset, limit, filters)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		api.ErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -92,32 +92,27 @@ func (h *CatalogHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-
 	response := Response{
 		Products: products,
 		Total:    total,
 	}
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	api.OKResponse(w, response)
 }
 
 func (h *CatalogHandler) HandleGetByCode(w http.ResponseWriter, r *http.Request) {
 	code := strings.TrimSpace(r.PathValue("code"))
 	if code == "" {
-		http.Error(w, "invalid code", http.StatusBadRequest)
+		api.ErrorResponse(w, http.StatusBadRequest, "invalid code")
 		return
 	}
 
 	product, err := h.repo.GetByCode(r.Context(), code)
 	if err != nil {
 		if errors.Is(err, models.ErrProductNotFound) {
-			http.Error(w, "product not found", http.StatusNotFound)
+			api.ErrorResponse(w, http.StatusNotFound, "product not found")
 			return
 		}
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		api.ErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -145,11 +140,7 @@ func (h *CatalogHandler) HandleGetByCode(w http.ResponseWriter, r *http.Request)
 		Variants: variants,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	api.OKResponse(w, response)
 }
 
 func parseOffset(raw string) (int, error) {

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/mytheresa/go-hiring-challenge/app/api"
 	"github.com/mytheresa/go-hiring-challenge/models"
 )
 
@@ -39,7 +40,7 @@ func NewHandler(repo CategoryRepository) *Handler {
 func (h *Handler) HandleGet(w http.ResponseWriter, r *http.Request) {
 	categories, err := h.repo.List(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		api.ErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -51,24 +52,20 @@ func (h *Handler) HandleGet(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(listResponse{Categories: responseCategories}); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	api.OKResponse(w, listResponse{Categories: responseCategories})
 }
 
 func (h *Handler) HandlePost(w http.ResponseWriter, r *http.Request) {
 	var payload createCategoryRequest
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		http.Error(w, "invalid body", http.StatusBadRequest)
+		api.ErrorResponse(w, http.StatusBadRequest, "invalid body")
 		return
 	}
 
 	payload.Code = strings.TrimSpace(payload.Code)
 	payload.Name = strings.TrimSpace(payload.Name)
 	if payload.Code == "" || payload.Name == "" {
-		http.Error(w, "code and name are required", http.StatusBadRequest)
+		api.ErrorResponse(w, http.StatusBadRequest, "code and name are required")
 		return
 	}
 
@@ -77,7 +74,7 @@ func (h *Handler) HandlePost(w http.ResponseWriter, r *http.Request) {
 		Name: payload.Name,
 	})
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		api.ErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -87,7 +84,7 @@ func (h *Handler) HandlePost(w http.ResponseWriter, r *http.Request) {
 		Code: created.Code,
 		Name: created.Name,
 	}); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		api.ErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 }
