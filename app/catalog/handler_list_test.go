@@ -138,6 +138,17 @@ func TestCatalogHandleGet(t *testing.T) {
 		assert.JSONEq(t, `{"error":"invalid offset"}`, rec.Body.String())
 	})
 
+	t.Run("returns 400 for negative offset", func(t *testing.T) {
+		handler := NewCatalogHandler(catalogListRepoStub{})
+		req := httptest.NewRequest(http.MethodGet, "/catalog?offset=-1", nil)
+		rec := httptest.NewRecorder()
+
+		handler.HandleGet(rec, req)
+
+		assert.Equal(t, http.StatusBadRequest, rec.Code)
+		assert.JSONEq(t, `{"error":"invalid offset"}`, rec.Body.String())
+	})
+
 	t.Run("returns 400 for invalid limit", func(t *testing.T) {
 		handler := NewCatalogHandler(catalogListRepoStub{})
 		req := httptest.NewRequest(http.MethodGet, "/catalog?limit=101", nil)

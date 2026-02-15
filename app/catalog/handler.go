@@ -153,7 +153,7 @@ func parseOffset(raw string) (int, error) {
 		return 0, err
 	}
 	if offset < 0 {
-		return 0, nil
+		return 0, errors.New("offset below minimum")
 	}
 
 	return offset, nil
