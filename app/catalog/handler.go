@@ -6,8 +6,10 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/mytheresa/go-hiring-challenge/models"
+	"github.com/shopspring/decimal"
 )
 
 type Response struct {
@@ -27,7 +29,7 @@ type Category struct {
 }
 
 type ProductLister interface {
-	List(ctx context.Context, offset, limit int) ([]models.Product, int64, error)
+	List(ctx context.Context, offset, limit int, filters models.ProductFilters) ([]models.Product, int64, error)
 }
 
 type CatalogHandler struct {
@@ -51,7 +53,13 @@ func (h *CatalogHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, total, err := h.repo.List(r.Context(), offset, limit)
+	filters, err := parseFilters(r)
+	if err != nil {
+		http.Error(w, "invalid filters", http.StatusBadRequest)
+		return
+	}
+
+	res, total, err := h.repo.List(r.Context(), offset, limit, filters)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -121,4 +129,35 @@ func parseLimit(raw string) (int, error) {
 	}
 
 	return limit, nil
+}
+
+func parseFilters(r *http.Request) (models.ProductFilters, error) {
+	category := strings.TrimSpace(r.URL.Query().Get("category"))
+
+	priceLessThan, err := parsePriceLessThan(r)
+	if err != nil {
+		return models.ProductFilters{}, err
+	}
+
+	return models.ProductFilters{
+		Category:      category,
+		PriceLessThan: priceLessThan,
+	}, nil
+}
+
+func parsePriceLessThan(r *http.Request) (*decimal.Decimal, error) {
+	raw := strings.TrimSpace(r.URL.Query().Get("price_less_than"))
+	if raw == "" {
+		raw = strings.TrimSpace(r.URL.Query().Get("priceLessThan"))
+	}
+	if raw == "" {
+		return nil, nil
+	}
+
+	value, err := decimal.NewFromString(raw)
+	if err != nil {
+		return nil, err
+	}
+
+	return &value, nil
 }
