@@ -1,6 +1,7 @@
 package catalog
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -16,18 +17,20 @@ type Product struct {
 	Price float64 `json:"price"`
 }
 
-type CatalogHandler struct {
-	repo *models.ProductsRepository
+type ProductLister interface {
+	List(ctx context.Context) ([]models.Product, error)
 }
 
-func NewCatalogHandler(r *models.ProductsRepository) *CatalogHandler {
-	return &CatalogHandler{
-		repo: r,
-	}
+type CatalogHandler struct {
+	repo ProductLister
+}
+
+func NewCatalogHandler(r ProductLister) *CatalogHandler {
+	return &CatalogHandler{repo: r}
 }
 
 func (h *CatalogHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
-	res, err := h.repo.GetAllProducts()
+	res, err := h.repo.List(r.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -42,13 +45,9 @@ func (h *CatalogHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Return the products as a JSON response
 	w.Header().Set("Content-Type", "application/json")
 
-	response := Response{
-		Products: products,
-	}
-
+	response := Response{Products: products}
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

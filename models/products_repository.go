@@ -1,6 +1,8 @@
 package models
 
 import (
+	"context"
+
 	"gorm.io/gorm"
 )
 
@@ -9,15 +11,15 @@ type ProductsRepository struct {
 }
 
 func NewProductsRepository(db *gorm.DB) *ProductsRepository {
-	return &ProductsRepository{
-		db: db,
-	}
+	return &ProductsRepository{db: db}
 }
 
-func (r *ProductsRepository) GetAllProducts() ([]Product, error) {
+func (r *ProductsRepository) List(ctx context.Context) ([]Product, error) {
 	var products []Product
-	if err := r.db.Preload("Variants").Find(&products).Error; err != nil {
+
+	if err := r.db.WithContext(ctx).Preload("Variants").Find(&products).Error; err != nil {
 		return nil, err
 	}
+
 	return products, nil
 }
