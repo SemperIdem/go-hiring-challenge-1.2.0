@@ -12,7 +12,7 @@ type Variant struct {
 	ProductID uint            `gorm:"not null"`
 	Name      string          `gorm:"not null"`
 	SKU       string          `gorm:"uniqueIndex;not null"`
-	Price     decimal.Decimal `gorm:"type:decimal(10,2);null"`
+	Price     *decimal.Decimal `gorm:"type:decimal(10,2);null"`
 }
 
 func (v *Variant) TableName() string {

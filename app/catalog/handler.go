@@ -23,6 +23,19 @@ type Product struct {
 	Category Category `json:"category"`
 }
 
+type ProductDetails struct {
+	Code     string          `json:"code"`
+	Price    float64         `json:"price"`
+	Category Category        `json:"category"`
+	Variants []ProductVariant `json:"variants"`
+}
+
+type ProductVariant struct {
+	Name  string  `json:"name"`
+	SKU   string  `json:"sku"`
+	Price float64 `json:"price"`
+}
+
 type Category struct {
 	Code string `json:"code"`
 	Name string `json:"name"`
@@ -30,6 +43,7 @@ type Category struct {
 
 type ProductLister interface {
 	List(ctx context.Context, offset, limit int, filters models.ProductFilters) ([]models.Product, int64, error)
+	GetByCode(ctx context.Context, code string) (*models.Product, error)
 }
 
 type CatalogHandler struct {
@@ -84,6 +98,54 @@ func (h *CatalogHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 		Products: products,
 		Total:    total,
 	}
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func (h *CatalogHandler) HandleGetByCode(w http.ResponseWriter, r *http.Request) {
+	code := strings.TrimSpace(r.PathValue("code"))
+	if code == "" {
+		http.Error(w, "invalid code", http.StatusBadRequest)
+		return
+	}
+
+	product, err := h.repo.GetByCode(r.Context(), code)
+	if err != nil {
+		if errors.Is(err, models.ErrProductNotFound) {
+			http.Error(w, "product not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	variants := make([]ProductVariant, len(product.Variants))
+	for i, variant := range product.Variants {
+		price := product.Price
+		if variant.Price != nil {
+			price = *variant.Price
+		}
+
+		variants[i] = ProductVariant{
+			Name:  variant.Name,
+			SKU:   variant.SKU,
+			Price: price.InexactFloat64(),
+		}
+	}
+
+	response := ProductDetails{
+		Code:  product.Code,
+		Price: product.Price.InexactFloat64(),
+		Category: Category{
+			Code: product.Category.Code,
+			Name: product.Category.Name,
+		},
+		Variants: variants,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

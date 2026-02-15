@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"github.com/shopspring/decimal"
@@ -16,6 +17,8 @@ type ProductFilters struct {
 	Category      string
 	PriceLessThan *decimal.Decimal
 }
+
+var ErrProductNotFound = errors.New("product not found")
 
 func NewProductsRepository(db *gorm.DB) *ProductsRepository {
 	return &ProductsRepository{db: db}
@@ -57,4 +60,21 @@ func (r *ProductsRepository) List(ctx context.Context, offset, limit int, filter
 	}
 
 	return products, total, nil
+}
+
+func (r *ProductsRepository) GetByCode(ctx context.Context, code string) (*Product, error) {
+	var product Product
+
+	if err := r.db.WithContext(ctx).
+		Preload("Variants").
+		Preload("Category").
+		Where("code = ?", code).
+		First(&product).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrProductNotFound
+		}
+		return nil, err
+	}
+
+	return &product, nil
 }
